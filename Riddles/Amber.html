@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krellith Space Riddles (AI Powered)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh;
+            background-image: url('image_0.png');
+            background-size: cover; background-position: center;
+            background-repeat: no-repeat; background-attachment: fixed;
+        }
+
+        #page-container {
+            border: none;
+            background-color: rgba(10, 10, 30, 0.9);
+            padding: 40px; border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
+            text-align: center; max-width: 600px; width: 90%; margin: 20px;
+        }
+
+        h1 { color: #00e6ff; text-transform: uppercase; letter-spacing: 2px; text-align: center; }
+        #riddle-container { margin-bottom: 20px; }
+        #riddle-text { font-size: 1.2em; line-height: 1.6; margin-bottom: 30px; color: #fff; }
+        #progress-text { color: #bbb; }
+
+        #input-container { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+
+        #answer-input {
+            padding: 10px 15px; font-size: 1em;
+            border: 2px solid #00c3ff; border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.1); color: #fff;
+            width: 80%; max-width: 300px;
+        }
+
+        #answer-input:focus { outline: none; box-shadow: 0 0 10px #00e6ff; }
+        #answer-input:disabled { opacity: 0.5; border-color: #555; }
+
+        #submit-btn, #next-btn {
+            padding: 10px 25px; font-size: 1.1em;
+            border: none; border-radius: 8px;
+            cursor: pointer; transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+
+        #submit-btn { background-color: #007bff; color: white; }
+        #submit-btn:hover { background-color: #0056b3; }
+        #submit-btn:disabled { background-color: #555; cursor: not-allowed; }
+
+        #next-btn { background-color: #28a745; color: white; display: none; }
+        #next-btn:hover { background-color: #1e7e34; }
+
+        #result-display {
+            font-weight: bold; font-size: 1.2em;
+            margin-top: 20px; min-height: 1.4em;
+            padding: 10px; border-radius: 8px;
+        }
+
+        /* Result Styles */
+        .correct { color: #28a745; border: 1px solid #28a745; background-color: rgba(40, 167, 69, 0.1); }
+        .wrong { color: #dc3545; border: 1px solid #dc3545; background-color: rgba(220, 53, 69, 0.1); }
+        .thinking { color: #ffc107; border: 1px solid #ffc107; background-color: rgba(255, 193, 7, 0.1); font-style: italic;}
+
+        #final-message { display: none; font-size: 1.5em; color: #00e6ff; margin-top: 40px; }
+    </style>
+</head>
+<body>
+
+    <div id="page-container">
+        <h1>Krellith Space Riddles</h1>
+        <p id="progress-text">Connecting to Krellith Network...</p>
+        <div id="riddle-container">
+            <p id="riddle-text">Initializing...</p>
+        </div>
+
+        <div id="input-container">
+            <input type="text" id="answer-input" placeholder="Your answer...">
+            <button id="submit-btn" onclick="checkAnswerWithAI()">Transmit Answer</button>
+            <button id="next-btn" onclick="loadNextRiddle()">Continue Mission</button>
+        </div>
+
+        <p id="result-display"></p>
+
+        <div id="final-message">
+            Mission Complete. Krellith Space Riddles decoded. Proceed to standard protocols.
+        </div>
+    </div>
+
+    <script>
+        // Phase 2 Implementation Detail:
+        // Enter your deployed Azure Function URL here.
+        // For local testing (Func Start), it usually is http://localhost:7071/api/KrellithDecoder
+        const AI_API_ENDPOINT = "YOUR_DEPLOYED_AZURE_FUNCTION_URL_HERE"; 
+
+        // The riddles are still local, but answers are now handled securely by the AI backend.
+        const riddles = [
+            "I arrive without being asked, and I disappear without being stolen. Many wish to see me, but few ever truly find me. What am I?",
+            "I have no mouth, but I can consume everything. I have no eyes, but I am surrounded by light. The closer you get, the slower time becomes. What am I?",
+            "At night I appear without being fetched, and by day I am lost without being stolen. What are we?",
+            "I am a silent dance of colorful fire, twisting and turning in the void. What am I?",
+            "I have a tail but no body. I have an icy heart but no soul. I visit you occasionally, then vanish for decades. What am I?"
+        ];
+
+        let currentRiddleIndex = 0;
+
+        const progressText = document.getElementById('progress-text');
+        const riddleText = document.getElementById('riddle-text');
+        const answerInput = document.getElementById('answer-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const resultDisplay = document.getElementById('result-display');
+        const finalMessage = document.getElementById('final-message');
+        const riddleContainer = document.getElementById('riddle-container');
+        const inputContainer = document.getElementById('input-container');
+
+        // Allow pressing 'Enter'
+        answerInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter" && submitBtn.style.display !== 'none' && !submitBtn.disabled) {
+                checkAnswerWithAI();
+            } else if (event.key === "Enter" && nextBtn.style.display !== 'none') {
+                loadNextRiddle();
+            }
+        });
+
+        function showThinking(isThinking) {
+            if (isThinking) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = "Analyzing...";
+                answerInput.disabled = true;
+                resultDisplay.innerText = "Krellith intelligence is analyzing your transmission semantic signature...";
+                resultDisplay.className = "thinking";
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Transmit Answer";
+                answerInput.disabled = false;
+            }
+        }
+
+        function loadNextRiddle() {
+            currentRiddleIndex++;
+            
+            if (currentRiddleIndex < riddles.length) {
+                progressText.innerText = `Riddle ${currentRiddleIndex + 1} of 5`;
+                riddleText.innerText = riddles[currentRiddleIndex];
+                answerInput.value = '';
+                submitBtn.style.display = 'inline-block';
+                nextBtn.style.display = 'none';
+                resultDisplay.innerText = '';
+                resultDisplay.className = '';
+                showThinking(false); // Reset thinking state
+                answerInput.focus();
+            } else {
+                progressText.innerText = 'Challenge Complete';
+                riddleContainer.style.display = 'none';
+                inputContainer.style.display = 'none';
+                resultDisplay.style.display = 'none';
+                finalMessage.style.display = 'block';
+            }
+        }
+
+        // NEW AI IMPLEMENTATION
+        async function checkAnswerWithAI() {
+            const userAnswer = answerInput.value.trim();
+            if (!userAnswer) return;
+
+            // 1. Set UI to "Thinking" state
+            showThinking(true);
+
+            // 2. Prepare Payload
+            const payload = {
+                riddle_index: currentRiddleIndex,
+                user_answer: userAnswer
+            };
+
+            try {
+                // 3. POST request to your deployed Backend (Azure Function)
+                const response = await fetch(AI_API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Krellith Network Error: ${response.statusText}`);
+                }
+
+                // 4. Parse AI Response
+                // The API will return { "is_correct": bool, "feedback": "string" }
+                const data = await response.json();
+
+                // 5. Update UI based on AI semantic analysis
+                resultDisplay.innerText = data.feedback; // AI's smart feedback
+
+                if (data.is_correct) {
+                    resultDisplay.className = "correct";
+                    submitBtn.style.display = 'none';
+                    nextBtn.style.display = 'inline-block';
+                    nextBtn.focus();
+                } else {
+                    resultDisplay.className = "wrong";
+                    showThinking(false); // Re-enable input/button
+                    answerInput.select(); 
+                }
+
+            } catch (error) {
+                console.error(error);
+                resultDisplay.innerText = "Transmission error. Krellith network unstable. Retry later.";
+                resultDisplay.className = "wrong";
+                showThinking(false);
+            }
+        }
+
+        // Initial load
+        riddleText.innerText = riddles[currentRiddleIndex];
+        progressText.innerText = `Riddle 1 of 5`;
+        answerInput.focus();
+    </script>
+</body>
+</html>
